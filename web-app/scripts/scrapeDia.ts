@@ -1,8 +1,9 @@
 import { CheerioWebBaseLoader } from "@langchain/community/document_loaders/web/cheerio";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { OpenAIEmbeddings } from "@langchain/openai";
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { HNSWLib } from "@langchain/community/vectorstores/hnswlib";
 import dotenv from "dotenv";
+import fs from "fs";
 
 dotenv.config();
 
@@ -20,7 +21,6 @@ async function run() {
 
   for (const url of DIA_URLS) {
     console.log(`Çekiliyor: ${url}`);
-    // Drop selector to pull entire body text to ensure we get data
     const loader = new CheerioWebBaseLoader(url);
     
     try {
@@ -28,7 +28,7 @@ async function run() {
       if(docs.length === 0 || !docs[0].pageContent.trim()) {
          console.warn(`⚠️ ${url} adresinden metin okunamadı.`);
       }
-      // Inject metadata
+      
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const enrichedDocs = docs.map((doc: any) => ({
           ...doc,
@@ -50,16 +50,28 @@ async function run() {
   const splitDocs = await textSplitter.splitDocuments(allDocs);
   console.log(`Toplam ${splitDocs.length} parça oluşturuldu.`);
 
-  if(!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'mock-key' || process.env.OPENAI_API_KEY === 'your-api-key') {
-     console.log("⚠️ Gerçek OPENAI_API_KEY bulunamadı. Vektör veritabanı simüle ediliyor.");
+  if(!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'mock-key' || process.env.GOOGLE_API_KEY === 'your-api-key') {
+     console.log("⚠️ Gerçek GOOGLE_API_KEY bulunamadı. Vektör veritabanı simüle ediliyor.");
      return;
   }
 
-  console.log("Vektör veritabanı (HNSWLib) oluşturuluyor...");
-  const embeddings = new OpenAIEmbeddings();
-  const vectorStore = await HNSWLib.fromDocuments(splitDocs, embeddings);
+  console.log("Vektör veritabanı (HNSWLib - Google Embeddings) oluşturuluyor...");
+  const embeddings = new GoogleGenerativeAIEmbeddings({
+     model: "text-embedding-004", 
+     apiKey: process.env.GOOGLE_API_KEY
+  });
   
   const directory = "./vector_store";
+  let vectorStore;
+
+  if (fs.existsSync(directory)) {
+      console.log("📁 Mevcut vektör veritabanı belleğe alınıyor...");
+      vectorStore = await HNSWLib.load(directory, embeddings);
+      await vectorStore.addDocuments(splitDocs);
+  } else {
+      vectorStore = await HNSWLib.fromDocuments(splitDocs, embeddings);
+  }
+  
   await vectorStore.save(directory);
   console.log(`✅ Vektör veritabanı '${directory}' klasörüne kaydedildi!`);
 }

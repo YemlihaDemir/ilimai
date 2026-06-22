@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import { PrismaClient } from '@prisma/client';
 import { HNSWLib } from "@langchain/community/vectorstores/hnswlib";
-import { OpenAIEmbeddings } from "@langchain/openai";
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
+import { GoogleGenerativeAI, Schema, SchemaType } from "@google/generative-ai";
 import fs from 'fs';
 
 const prisma = new PrismaClient();
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'mock-key' });
+
+// Initialize Google AI
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || 'mock-key');
 
 export async function POST(request: Request) {
   try {
@@ -19,12 +21,14 @@ export async function POST(request: Request) {
     let contextText = "Sistemdeki kısıtlı kaynak (Örn: DİA Ansiklopedisi)";
     let sourceMeta = "Veritabanı dışı";
 
-    // RAG Search implementation (if vector DB exists)
-    if (fs.existsSync('./vector_store') && process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'mock-key') {
+    // RAG Search implementation with Google Embeddings
+    if (fs.existsSync('./vector_store') && process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY !== 'mock-key') {
       try {
-        const embeddings = new OpenAIEmbeddings();
+        const embeddings = new GoogleGenerativeAIEmbeddings({
+           model: "text-embedding-004",
+           apiKey: process.env.GOOGLE_API_KEY
+        });
         const vectorStore = await HNSWLib.load('./vector_store', embeddings);
-        // Cast vectorStore to any to bypass the faulty TS declaration in hnswlib
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const vs: any = vectorStore;
         const results = await vs.similaritySearch(topic, 2);
@@ -40,15 +44,15 @@ export async function POST(request: Request) {
     }
 
     // Mock Response Generator if no real API key is set
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'mock-key') {
+    if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'mock-key') {
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       if (type === 'flashcard') {
         const mockFlashcard = await prisma.flashcard.create({
           data: {
             topic: topic,
-            front: `${topic} kelimesinin/kavramının Arapça kökeni ve temel İslami terminolojideki anlamı nedir?`,
-            back: `Bu kavram "${topic}" kökünden türemiştir. (Kaynak: Diyanet İslam Ansiklopedisi Simülasyonu)`
+            front: `${topic} kavramı nedir?`,
+            back: `Açıklama. (Kaynak: Mock Google AI)`
           }
         });
         return NextResponse.json({ success: true, data: mockFlashcard });
@@ -57,43 +61,67 @@ export async function POST(request: Request) {
       const mockQuestion = await prisma.question.create({
         data: {
           topic: topic,
-          context: `Kaynak: Diyanet İslam Ansiklopedisi (Simülasyon)`,
-          question: `RAG Mimarisine göre, "${topic}" konusu ile ilgili çekilen metne dayanarak hangisi doğrudur?`,
-          optionA: 'Sadece ansiklopedideki veriler kullanılır.',
-          optionB: 'Yapay zeka kafasından uydurabilir.',
-          optionC: 'Kaynak göstermek yasaktır.',
-          optionD: 'DİA harici internet sitelerine bakılır.',
-          optionE: 'PDF yüklenemez.',
-          correct: 'A',
-          explanation: `RAG (Retrieval-Augmented Generation) mimarisinde yapay zeka sadece önceden kendisine verilen vektör veritabanındaki (Örn: DİA) metinlere dayanarak cevap verir. Bu yüzden A şıkkı doğrudur.`
+          context: `Kaynak: Mock Google AI`,
+          question: `Mock Soru?`,
+          optionA: 'A', optionB: 'B', optionC: 'C', optionD: 'D', optionE: 'E',
+          correct: 'A', explanation: `Açıklama`
         }
       });
       return NextResponse.json({ success: true, data: mockQuestion });
     }
 
-    // Real RAG OpenAI Logic
+    // Real RAG Logic with Gemini
     let prompt = '';
+    let schemaDefinition: Schema;
+
     if (type === 'flashcard') {
       prompt = `Sen bir İslami İlimler profesörüsün. SADECE AŞAĞIDAKİ KAYNAK METNİ KULLANARAK "${topic}" konusunda ezberlenmesi gereken bir Aralıklı Tekrar (Flashcard) hazırla.
       Eğer metin boşsa "Bu konu hakkında güvenilir kaynağımda bilgi yok" cevabını dön.
-      JSON formatında dön: {"front": "soru veya kelime", "back": "cevabı ve açıklaması (Kaynak: ${sourceMeta})"}.
-      
-      KAYNAK METİN:
-      ${contextText}
-      `;
+      Açıklama kısmının sonuna "(Kaynak: ${sourceMeta})" ekle.
+      KAYNAK METİN: ${contextText}`;
+
+      schemaDefinition = {
+        type: SchemaType.OBJECT,
+        properties: {
+          front: { type: SchemaType.STRING, description: "Soru veya kelime" },
+          back: { type: SchemaType.STRING, description: "Cevap ve açıklama" }
+        },
+        required: ["front", "back"]
+      };
+
     } else {
       prompt = `Sen bir MBSTS ve DHBT soru hazırlama komisyonu üyesisin. SADECE AŞAĞIDAKİ KAYNAK METNİ BAZ ALARAK "${topic}" konusunda zorlayıcı ve öğretici, 5 şıklı bir test sorusu hazırla.
       Dışarıdan hiçbir bilgi ekleme. Eğer kaynak metinde bilgi yoksa "Yeterli kaynak bulunamadı" olarak cevap üretme.
-      JSON formatında dön: {"question": "...", "optionA": "...", "optionB": "...", "optionC": "...", "optionD": "...", "optionE": "...", "correct": "A/B/C/D/E", "explanation": "Açıklama (Kaynak: ${sourceMeta})"}`;
+      Açıklama kısmının sonuna "(Kaynak: ${sourceMeta})" ekle.
+      KAYNAK METİN: ${contextText}`;
+
+      schemaDefinition = {
+        type: SchemaType.OBJECT,
+        properties: {
+          question: { type: SchemaType.STRING },
+          optionA: { type: SchemaType.STRING },
+          optionB: { type: SchemaType.STRING },
+          optionC: { type: SchemaType.STRING },
+          optionD: { type: SchemaType.STRING },
+          optionE: { type: SchemaType.STRING },
+          correct: { type: SchemaType.STRING, description: "Sadece A, B, C, D veya E harfi" },
+          explanation: { type: SchemaType.STRING }
+        },
+        required: ["question", "optionA", "optionB", "optionC", "optionD", "optionE", "correct", "explanation"]
+      };
     }
 
-    const completion = await openai.chat.completions.create({
-      messages: [{ role: "system", content: prompt }],
-      model: "gpt-3.5-turbo",
-      response_format: { type: "json_object" },
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: schemaDefinition,
+      }
     });
 
-    const result = JSON.parse(completion.choices[0].message.content || '{}');
+    const completion = await model.generateContent(prompt);
+    const resultText = completion.response.text();
+    const result = JSON.parse(resultText);
 
     if (type === 'flashcard') {
       const savedCard = await prisma.flashcard.create({

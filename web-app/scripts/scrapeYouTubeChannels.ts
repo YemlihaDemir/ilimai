@@ -1,6 +1,6 @@
 import { YoutubeTranscript } from 'youtube-transcript';
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { OpenAIEmbeddings } from "@langchain/openai";
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { HNSWLib } from "@langchain/community/vectorstores/hnswlib";
 import ytsr from 'ytsr';
 import dotenv from "dotenv";
@@ -8,7 +8,6 @@ import fs from "fs";
 
 dotenv.config();
 
-// Hedef Kanallar (Arama terimi olarak kullanılacak)
 const TARGET_CHANNELS = [
   "Nurettin Gültekin",
   "Servet Hayma",
@@ -20,14 +19,17 @@ const TARGET_CHANNELS = [
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function run() {
-  console.log("🚀 Devasa YouTube Eğitim Seti Scraping Botu Başlatılıyor (ytsr via search)...");
-  console.log("NOT: YouTube Rate Limitlerini (IP Ban) aşmamak için bot yavaş çalışacak ve batch'ler halinde indirecektir.\n");
+  console.log("🚀 Devasa YouTube Eğitim Seti Scraping Botu Başlatılıyor (Google AI)...");
+  
+  const embeddings = new GoogleGenerativeAIEmbeddings({
+     model: "text-embedding-004", 
+     apiKey: process.env.GOOGLE_API_KEY || "mock-key"
+  });
 
-  const embeddings = new OpenAIEmbeddings({ openAIApiKey: process.env.OPENAI_API_KEY || "mock-key" });
   let vectorStore: HNSWLib | null = null;
   const directory = "./vector_store";
 
-  if (fs.existsSync(directory) && process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'mock-key') {
+  if (fs.existsSync(directory) && process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY !== 'mock-key') {
       console.log("📁 Mevcut vektör veritabanı belleğe alınıyor...");
       vectorStore = await HNSWLib.load(directory, embeddings);
   }
@@ -42,14 +44,11 @@ async function run() {
       console.log(`📡 Kanal Aranıyor: ${channel}`);
       
       try {
-          // Arama yap
-          const searchResults = await ytsr(channel, { limit: 5 }); // Sadece ilk 5 videoyu çekelim test için
+          const searchResults = await ytsr(channel, { limit: 5 }); 
           const videos = searchResults.items.filter(item => item.type === 'video');
-          
           console.log(`Toplam ${videos.length} video bulundu.`);
 
           for (const video of videos) {
-              // ytsr Video object type hack
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const v: any = video;
               
@@ -69,10 +68,9 @@ async function run() {
                       }
                   };
 
-                  console.log(`✂️ Metin vektör parçalarına ayrılıyor...`);
                   const splitDocs = await textSplitter.splitDocuments([doc]);
                   
-                  if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'mock-key' || process.env.OPENAI_API_KEY === 'your-api-key') {
+                  if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'mock-key') {
                       console.log(`⚠️ Mock Modu: ${splitDocs.length} parça oluşturuldu ancak DB'ye kaydedilmedi.`);
                   } else {
                       if(!vectorStore) {
@@ -85,11 +83,9 @@ async function run() {
                   }
 
               } catch (e) {
-                   console.error(`❌ Video Deşifresi alınamadı (Büyük ihtimalle altyazı kapalı): ${(e as Error).message}`);
+                   console.error(`❌ Video Deşifresi alınamadı: ${(e as Error).message}`);
               }
               
-              // Anti-Ban Gecikmesi
-              console.log("⏳ YouTube ban yememek için 5 saniye bekleniyor...");
               await sleep(5000);
           }
       } catch (err) {

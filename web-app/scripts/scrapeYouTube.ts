@@ -1,12 +1,12 @@
 import { YoutubeTranscript } from 'youtube-transcript';
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-import { OpenAIEmbeddings } from "@langchain/openai";
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { HNSWLib } from "@langchain/community/vectorstores/hnswlib";
 import dotenv from "dotenv";
+import fs from "fs";
 
 dotenv.config();
 
-// Servet Hayma ve Nurettin Gültekin'in Örnek Ders Videoları
 const YOUTUBE_VIDEOS = [
   { url: "https://www.youtube.com/watch?v=CUS_xTiyRfY", source: "Nurettin Gültekin - Kur'an Bilgisi" },
   { url: "https://www.youtube.com/watch?v=YG5XsbVIfVk", source: "Servet Hayma - Arapça Giriş Dersi Bina Okumaları 1" }
@@ -23,10 +23,7 @@ async function run() {
     
     try {
       const transcript = await YoutubeTranscript.fetchTranscript(video.url);
-      
-      // Metinleri birleştir
       const fullText = transcript.map(t => t.text).join(' ');
-      
       console.log(`✅ Deşifre başarıyla çekildi. Uzunluk: ${fullText.length} karakter.`);
       
       allDocs.push({
@@ -37,7 +34,6 @@ async function run() {
               type: "youtube_video"
           }
       });
-      
     } catch(e) {
       console.error(`❌ ${video.url} çekilemedi (Büyük ihtimalle altyazı/transcript kapalı):`, (e as Error).message);
     }
@@ -57,17 +53,28 @@ async function run() {
   const splitDocs = await textSplitter.splitDocuments(allDocs);
   console.log(`Toplam ${splitDocs.length} parça oluşturuldu.`);
 
-  if(!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY === 'mock-key' || process.env.OPENAI_API_KEY === 'your-api-key') {
-     console.log("⚠️ Gerçek OPENAI_API_KEY bulunamadı. Vektör veritabanı simüle ediliyor. İşlem bitti.");
+  if(!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'mock-key') {
+     console.log("⚠️ Gerçek GOOGLE_API_KEY bulunamadı. Vektör veritabanı simüle ediliyor. İşlem bitti.");
      return;
   }
 
-  console.log("Vektör veritabanı (HNSWLib) güncelleniyor/oluşturuluyor...");
-  const embeddings = new OpenAIEmbeddings();
-  const vectorStore = await HNSWLib.fromDocuments(splitDocs, embeddings);
+  console.log("Vektör veritabanı (HNSWLib - Google) güncelleniyor/oluşturuluyor...");
+  const embeddings = new GoogleGenerativeAIEmbeddings({
+     model: "text-embedding-004", 
+     apiKey: process.env.GOOGLE_API_KEY
+  });
   
   const directory = "./vector_store";
-  // Load existing and append, or save new
+  let vectorStore;
+
+  if (fs.existsSync(directory)) {
+      console.log("📁 Mevcut vektör veritabanı belleğe alınıyor...");
+      vectorStore = await HNSWLib.load(directory, embeddings);
+      await vectorStore.addDocuments(splitDocs);
+  } else {
+      vectorStore = await HNSWLib.fromDocuments(splitDocs, embeddings);
+  }
+  
   await vectorStore.save(directory);
   console.log(`✅ YouTube metinleri '${directory}' klasörüne vektörize edilerek kaydedildi!`);
 }

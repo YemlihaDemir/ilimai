@@ -52,3 +52,34 @@ model DailyTask {
   
   createdAt   DateTime @default(now())
 }
+
+model Question {
+  id          String   @id @default(uuid())
+  topic       String
+  context     String?  // RAG from Diyanet resources
+  question    String
+  optionA     String
+  optionB     String
+  optionC     String
+  optionD     String
+  optionE     String?
+  correct     String   // A, B, C, D, E
+  explanation String
+  
+  createdAt   DateTime @default(now())
+}
+
+model Flashcard {
+  id          String   @id @default(uuid())
+  topic       String
+  front       String
+  back        String
+  
+  // Spaced Repetition (SuperMemo-2 algorithm fields can be added here)
+  easeFactor  Float    @default(2.5)
+  interval    Int      @default(0)
+  repetitions Int      @default(0)
+  dueDate     DateTime @default(now())
+  
+  createdAt   DateTime @default(now())
+}

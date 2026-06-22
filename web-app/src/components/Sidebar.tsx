@@ -4,8 +4,8 @@ import { LayoutDashboard, BookOpen, BrainCircuit, Mic2, Users, Settings } from "
 export function Sidebar() {
   const navItems = [
     { icon: LayoutDashboard, label: "Ana Panel", href: "/" },
+    { icon: BrainCircuit, label: "AI Çalışma Odası", href: "/study" },
     { icon: BookOpen, label: "Diyanet & İlahiyat", href: "#" },
-    { icon: BrainCircuit, label: "Hafıza & Tekrar", href: "#" },
     { icon: Mic2, label: "Hıfz & Tecvid", href: "#" },
     { icon: Users, label: "Sıralama & Liderlik", href: "#" },
   ];

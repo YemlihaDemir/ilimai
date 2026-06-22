@@ -6,7 +6,8 @@ import { Bot, Brain, FileQuestion, Loader2, Sparkles } from 'lucide-react';
 export default function StudyRoom() {
   const [topic, setTopic] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [result, setResult] = useState<any>(null); // keeping as any due to dynamic property access for options
   const [type, setType] = useState<'question' | 'flashcard'>('question');
 
   const handleGenerate = async () => {

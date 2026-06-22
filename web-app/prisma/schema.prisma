@@ -20,6 +20,7 @@ model User {
   // Relations
   progress       Progress?
   dailyTasks     DailyTask[]
+  flashcards     Flashcard[]
 }
 
 model Progress {
@@ -71,6 +72,9 @@ model Question {
 
 model Flashcard {
   id          String   @id @default(uuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
   topic       String
   front       String
   back        String

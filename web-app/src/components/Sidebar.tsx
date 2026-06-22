@@ -5,7 +5,7 @@ export function Sidebar() {
   const navItems = [
     { icon: LayoutDashboard, label: "Ana Panel", href: "/" },
     { icon: BrainCircuit, label: "AI Çalışma Odası", href: "/study" },
-    { icon: BookOpen, label: "Diyanet & İlahiyat", href: "#" },
+    { icon: BookOpen, label: "Hafıza & Tekrar", href: "/flashcards" },
     { icon: Mic2, label: "Hıfz & Tecvid", href: "#" },
     { icon: Users, label: "Sıralama & Liderlik", href: "#" },
   ];

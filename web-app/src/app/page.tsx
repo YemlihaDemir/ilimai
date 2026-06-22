@@ -15,7 +15,7 @@ export default async function Home() {
   });
 
   if (!user || !user.progress) {
-    return <div className="p-8">Veritabanında kullanıcı bulunamadı. Lütfen 'npx prisma db seed' çalıştırın.</div>;
+    return <div className="p-8">Veritabanında kullanıcı bulunamadı. Lütfen &apos;npx prisma db seed&apos; çalıştırın.</div>;
   }
 
   return (
@@ -90,7 +90,7 @@ export default async function Home() {
               <span className="bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 px-3 py-1 rounded-full text-xs font-medium uppercase tracking-wider mb-4 inline-block">Yapay Zeka Motoru</span>
               <h2 className="text-2xl font-bold mb-2">MBSTS Adaptif Deneme Sınavı</h2>
               <p className="text-indigo-100 max-w-md mb-6 opacity-80">
-                Sistem, geçmiş çözümlerinizi analiz etti. Özellikle "İslam Hukuku" alanındaki eksiklerinize odaklanan yeni bir deneme hazır.
+                Sistem, geçmiş çözümlerinizi analiz etti. Özellikle &quot;İslam Hukuku&quot; alanındaki eksiklerinize odaklanan yeni bir deneme hazır.
               </p>
               <button className="bg-white text-indigo-900 hover:bg-indigo-50 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2 transition-colors">
                 <PlayCircle className="w-5 h-5" />

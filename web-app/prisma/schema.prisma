@@ -6,9 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
@@ -22,6 +21,49 @@ model User {
   progress       Progress?
   dailyTasks     DailyTask[]
   flashcards     Flashcard[]
+  examResults    ExamResult[]
+}
+
+model Course {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  category    String   // MBSTS, GYS, DHBT
+  lessons     Lesson[]
+  createdAt   DateTime @default(now())
+}
+
+model Lesson {
+  id          String   @id @default(uuid())
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  content     String
+  videoUrl    String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model Exam {
+  id          String   @id @default(uuid())
+  title       String
+  category    String   // MBSTS Deneme 1, GYS Konu Testi vb.
+  questions   Question[]
+  results     ExamResult[]
+  createdAt   DateTime @default(now())
+}
+
+model ExamResult {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examId      String
+  exam        Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  score       Int      // Yüzdelik veya net
+  correct     Int
+  wrong       Int
+  empty       Int
+  createdAt   DateTime @default(now())
 }
 
 model Progress {
@@ -57,6 +99,8 @@ model DailyTask {
 
 model Question {
   id          String   @id @default(uuid())
+  examId      String?
+  exam        Exam?    @relation(fields: [examId], references: [id], onDelete: Cascade)
   topic       String
   context     String?  // RAG from Diyanet resources
   question    String

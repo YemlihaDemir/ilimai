@@ -1,6 +1,7 @@
 export const dynamic = "force-dynamic";
 import { BookOpen, CheckCircle2, Flame, PlayCircle, Target, TrendingUp } from "lucide-react";
 import { PrismaClient } from "@prisma/client";
+import Link from "next/link";
 
 const prisma = new PrismaClient();
 
@@ -115,10 +116,10 @@ export default async function Home() {
               <p className="text-indigo-100 max-w-md mb-6 opacity-80">
                 Sistem, geçmiş çözümlerinizi analiz etti. Özellikle &quot;İslam Hukuku&quot; alanındaki eksiklerinize odaklanan yeni bir deneme hazır.
               </p>
-              <button className="bg-white text-indigo-900 hover:bg-indigo-50 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2 transition-colors">
+              <Link href="/exam" className="bg-white text-indigo-900 hover:bg-indigo-50 px-6 py-2.5 rounded-lg font-semibold flex items-center gap-2 transition-colors w-fit">
                 <PlayCircle className="w-5 h-5" />
                 Hemen Başla (80 Soru)
-              </button>
+              </Link>
             </div>
           </section>
 

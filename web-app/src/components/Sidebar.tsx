@@ -8,6 +8,7 @@ export function Sidebar() {
     { icon: BookOpen, label: "Hafıza & Tekrar", href: "/flashcards" },
     { icon: Mic2, label: "Hıfz & Tecvid", href: "#" },
     { icon: Users, label: "Sıralama & Liderlik", href: "#" },
+    { icon: Settings, label: "Admin Paneli", href: "/admin" },
   ];
 
   return (

@@ -21,16 +21,21 @@ export default async function Home() {
   }
 
   const safeUser = user || {
-    name: "Öğrenci",
+    name: "Ahmet Hoca",
     progress: {
-      targetCompletion: 0,
-      streakDays: 0,
-      flashcardsToReview: 0,
-      fikihScore: 0,
-      kelamScore: 0,
-      memorizedAyahs: 0,
+      targetCompletion: 65,
+      streakDays: 12,
+      flashcardsToReview: 42,
+      fikihScore: 78,
+      kelamScore: 45,
+      memorizedAyahs: 124,
     },
-    dailyTasks: []
+    dailyTasks: [
+      { id: "1", title: "Fıkıh: Hac İbadeti ve Şartları", type: "Konu Anlatımı", timeOrCount: "15 dk", completed: true, active: false, order: 1 },
+      { id: "2", title: "MBSTS Fıkıh Mini Denemesi", type: "Soru Çözümü", timeOrCount: "10 Soru", completed: false, active: true, order: 2 },
+      { id: "3", title: "Arapça YDS Kelimeleri (Set 4)", type: "Aralıklı Tekrar", timeOrCount: "20 Kelime", completed: false, active: false, order: 3 },
+      { id: "4", title: "Tecvid: Medd-i Tabii Kuralları", type: "Konu Anlatımı", timeOrCount: "10 dk", completed: false, active: false, order: 4 },
+    ]
   };
 
   const progress = safeUser.progress!;

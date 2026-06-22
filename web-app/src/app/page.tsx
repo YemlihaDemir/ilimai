@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { BookOpen, CheckCircle2, Flame, PlayCircle, Target, TrendingUp } from "lucide-react";
 import { PrismaClient } from "@prisma/client";
 

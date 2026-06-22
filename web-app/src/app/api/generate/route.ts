@@ -4,6 +4,7 @@ import { HNSWLib } from "@langchain/community/vectorstores/hnswlib";
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { GoogleGenerativeAI, Schema, SchemaType } from "@google/generative-ai";
 import fs from 'fs';
+import path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -21,14 +22,17 @@ export async function POST(request: Request) {
     let contextText = "Sistemdeki kısıtlı kaynak (Örn: DİA Ansiklopedisi)";
     let sourceMeta = "Veritabanı dışı";
 
+    // Vercel ortamlarında doğru yolu bulmak için process.cwd() kullanıyoruz
+    const vectorStorePath = path.join(process.cwd(), 'vector_store');
+
     // RAG Search implementation with Google Embeddings
-    if (fs.existsSync('./vector_store') && process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY !== 'mock-key') {
+    if (fs.existsSync(vectorStorePath) && process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY !== 'mock-key') {
       try {
         const embeddings = new GoogleGenerativeAIEmbeddings({
            model: "text-embedding-004",
            apiKey: process.env.GOOGLE_API_KEY
         });
-        const vectorStore = await HNSWLib.load('./vector_store', embeddings);
+        const vectorStore = await HNSWLib.load(vectorStorePath, embeddings);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const vs: any = vectorStore;
         const results = await vs.similaritySearch(topic, 2);
@@ -41,33 +45,47 @@ export async function POST(request: Request) {
       } catch (e) {
           console.error("Vektör arama hatası:", e);
       }
+    } else {
+        console.log(`Vektör dizini bulunamadı veya API key eksik. Aranan yol: ${vectorStorePath}`);
     }
 
     // Mock Response Generator if no real API key is set
     if (!process.env.GOOGLE_API_KEY || process.env.GOOGLE_API_KEY === 'mock-key') {
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let mockData: any = {};
       if (type === 'flashcard') {
-        const mockFlashcard = await prisma.flashcard.create({
-          data: {
+          mockData = {
+            id: "mock-" + Date.now(),
             topic: topic,
             front: `${topic} kavramı nedir?`,
-            back: `Açıklama. (Kaynak: Mock Google AI)`
-          }
-        });
-        return NextResponse.json({ success: true, data: mockFlashcard });
+            back: `Açıklama. (Kaynak: Mock Google AI)`,
+            createdAt: new Date().toISOString()
+          };
+      } else {
+          mockData = {
+              id: "mock-" + Date.now(),
+              topic: topic,
+              context: `Kaynak: Mock Google AI`,
+              question: `Mock Soru: ${topic} hakkında aşağıdakilerden hangisi doğrudur?`,
+              optionA: 'Cevap A', optionB: 'Cevap B', optionC: 'Cevap C', optionD: 'Cevap D', optionE: 'Cevap E',
+              correct: 'A', explanation: `Bu bir deneme verisidir.`
+          };
       }
 
-      const mockQuestion = await prisma.question.create({
-        data: {
-          topic: topic,
-          context: `Kaynak: Mock Google AI`,
-          question: `Mock Soru?`,
-          optionA: 'A', optionB: 'B', optionC: 'C', optionD: 'D', optionE: 'E',
-          correct: 'A', explanation: `Açıklama`
-        }
-      });
-      return NextResponse.json({ success: true, data: mockQuestion });
+      // Veritabanına kaydetmeyi DENE, ancak hata olursa bile (db yoksa) cevabı kullanıcıya dön.
+      try {
+          if(type === 'flashcard') {
+             await prisma.flashcard.create({ data: { topic: mockData.topic, front: mockData.front, back: mockData.back } });
+          } else {
+             await prisma.question.create({ data: { topic: mockData.topic, question: mockData.question, optionA: mockData.optionA, optionB: mockData.optionB, optionC: mockData.optionC, optionD: mockData.optionD, correct: mockData.correct, explanation: mockData.explanation } });
+          }
+      } catch(dbErr) {
+          console.error("DB Mock kayıt hatası (Kullanıcıya veri gönderiliyor):", dbErr);
+      }
+
+      return NextResponse.json({ success: true, data: mockData });
     }
 
     // Real RAG Logic with Gemini
@@ -123,31 +141,39 @@ export async function POST(request: Request) {
     const resultText = completion.response.text();
     const result = JSON.parse(resultText);
 
-    if (type === 'flashcard') {
-      const savedCard = await prisma.flashcard.create({
-        data: { topic, front: result.front, back: result.back }
-      });
-      return NextResponse.json({ success: true, data: savedCard });
-    } else {
-      const savedQ = await prisma.question.create({
-        data: {
-          topic,
-          context: sourceMeta,
-          question: result.question,
-          optionA: result.optionA,
-          optionB: result.optionB,
-          optionC: result.optionC,
-          optionD: result.optionD,
-          optionE: result.optionE || null,
-          correct: result.correct,
-          explanation: result.explanation
-        }
-      });
-      return NextResponse.json({ success: true, data: savedQ });
+    let savedData = result;
+
+    // Veritabanına kaydetmeyi DENE, ancak Supabase/Neon bağlı değilse bile yapay zekanın ürettiği soruyu kullanıcıya GÖSTER.
+    try {
+      if (type === 'flashcard') {
+        savedData = await prisma.flashcard.create({
+          data: { topic, front: result.front, back: result.back }
+        });
+      } else {
+        savedData = await prisma.question.create({
+          data: {
+            topic,
+            context: sourceMeta,
+            question: result.question,
+            optionA: result.optionA,
+            optionB: result.optionB,
+            optionC: result.optionC,
+            optionD: result.optionD,
+            optionE: result.optionE || null,
+            correct: result.correct,
+            explanation: result.explanation
+          }
+        });
+      }
+    } catch(dbErr) {
+        console.error("DB'ye kaydedilemedi, ancak yapay zeka verisi kullanıcıya iletiliyor:", dbErr);
+        savedData.id = "temp-" + Date.now(); // Frontend'de hata almamak için sahte id
     }
 
+    return NextResponse.json({ success: true, data: savedData });
+
   } catch (error) {
-    console.error(error);
+    console.error("Yapay Zeka API Hatası:", error);
     return NextResponse.json({ error: 'İşlem sırasında bir hata oluştu.' }, { status: 500 });
   }
 }

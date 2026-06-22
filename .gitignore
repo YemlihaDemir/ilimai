@@ -1,10 +1,8 @@
 
 web-app/node_modules/
-web-app/vector_store/
 node_modules/
 
 web-app/.next/
-web-app/vector_store/
 mobile_app/build/
 mobile_app/.dart_tool/
 mobile_app/.pub-cache/

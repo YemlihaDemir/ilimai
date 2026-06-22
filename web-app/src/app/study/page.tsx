@@ -1,19 +1,21 @@
 'use client';
 
 import { useState } from 'react';
-import { Bot, Brain, FileQuestion, Loader2, Sparkles } from 'lucide-react';
+import { Bot, Brain, FileQuestion, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 
 export default function StudyRoom() {
   const [topic, setTopic] = useState('');
   const [loading, setLoading] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [result, setResult] = useState<any>(null); // keeping as any due to dynamic property access for options
+  const [error, setError] = useState<string | null>(null);
   const [type, setType] = useState<'question' | 'flashcard'>('question');
 
   const handleGenerate = async () => {
     if (!topic) return;
     setLoading(true);
     setResult(null);
+    setError(null);
 
     try {
       const response = await fetch('/api/generate', {
@@ -23,11 +25,15 @@ export default function StudyRoom() {
       });
       
       const data = await response.json();
-      if (data.success) {
+      
+      if (data.success && data.data) {
         setResult(data.data);
+      } else {
+        setError(data.error || "Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.");
       }
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
+      setError("Sunucuya bağlanılamadı veya işlem zaman aşımına uğradı. Vercel ortamında veritabanı ayarlarınızı kontrol edin.");
     } finally {
       setLoading(false);
     }
@@ -85,12 +91,23 @@ export default function StudyRoom() {
           className="w-full bg-slate-900 hover:bg-slate-800 text-white font-medium py-3.5 rounded-xl transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
         >
           {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-          {loading ? 'Yapay Zeka İçeriği Hazırlıyor...' : 'Oluştur ve Veritabanına Kaydet'}
+          {loading ? 'Yapay Zeka İçeriği Hazırlıyor...' : 'Oluştur ve Ekrana Getir'}
         </button>
       </div>
 
+      {/* Error Section */}
+      {error && (
+         <div className="bg-red-50 border border-red-200 rounded-xl p-6 flex gap-4 text-red-700 items-start">
+            <AlertCircle className="w-6 h-6 flex-shrink-0" />
+            <div>
+               <h3 className="font-bold mb-1">Üretim Hatası</h3>
+               <p className="text-sm opacity-90">{error}</p>
+            </div>
+         </div>
+      )}
+
       {/* Results Section */}
-      {result && (
+      {result && !error && (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
           <h2 className="text-xl font-bold text-slate-800 mb-4">Üretilen İçerik:</h2>
           

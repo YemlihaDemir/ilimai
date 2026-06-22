@@ -6,17 +6,37 @@ import { Brain } from "lucide-react";
 const prisma = new PrismaClient();
 
 export default async function FlashcardsPage() {
-  // Demo amaçlı "günü gelmiş veya geçmiş" kartları çekiyoruz
-  const dueCards = await prisma.flashcard.findMany({
-    where: {
-      dueDate: {
-        lte: new Date()
+  // Güvenli veritabanı sorgusu (Fallback destekli)
+  let dueCards = [];
+  try {
+    dueCards = await prisma.flashcard.findMany({
+      where: {
+        dueDate: {
+          lte: new Date()
+        }
+      },
+      orderBy: {
+        dueDate: 'asc'
       }
-    },
-    orderBy: {
-      dueDate: 'asc'
-    }
-  });
+    });
+  } catch (error) {
+    console.error("Veritabanı bağlantı hatası (Mock kart gösteriliyor):", error);
+    // Veritabanı yoksa uygulamanın çökmesini engellemek için mock kart üret
+    dueCards = [
+      {
+        id: "mock-1",
+        userId: "demo",
+        topic: "Mock Veri (Veritabanı Yok)",
+        front: "Veritabanı (Supabase/Neon) bağlantısını yapılandırdınız mı?",
+        back: ".env dosyasına DATABASE_URL ve DIRECT_URL eklemelisiniz.",
+        easeFactor: 2.5,
+        interval: 0,
+        repetitions: 0,
+        dueDate: new Date(),
+        createdAt: new Date()
+      }
+    ];
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">

@@ -5,19 +5,35 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 export default async function Home() {
-  // Veritabanından Demo Kullanıcıyı çek (seed.ts dosyasında oluşturduğumuz)
-  const user = await prisma.user.findFirst({
-    include: {
-      progress: true,
-      dailyTasks: {
-        orderBy: { order: 'asc' }
+  // Güvenli Fallback (Veritabanı bağlantısı yoksa uygulamanın çökmesini engeller)
+  let user = null;
+  try {
+    user = await prisma.user.findFirst({
+      include: {
+        progress: true,
+        dailyTasks: {
+          orderBy: { order: 'asc' }
+        }
       }
-    }
-  });
-
-  if (!user || !user.progress) {
-    return <div className="p-8">Veritabanında kullanıcı bulunamadı. Lütfen &apos;npx prisma db seed&apos; çalıştırın.</div>;
+    });
+  } catch (error) {
+    console.error("Veritabanı hatası:", error);
   }
+
+  const safeUser = user || {
+    name: "Öğrenci",
+    progress: {
+      targetCompletion: 0,
+      streakDays: 0,
+      flashcardsToReview: 0,
+      fikihScore: 0,
+      kelamScore: 0,
+      memorizedAyahs: 0,
+    },
+    dailyTasks: []
+  };
+
+  const progress = safeUser.progress!;
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
@@ -25,15 +41,15 @@ export default async function Home() {
       {/* Welcome & Stats Row */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Selamün Aleyküm, {user.name.split(' ')[0]} 👋</h1>
-          <p className="text-slate-500 mt-1">Bugün öğrenmeye devam etmek için harika bir gün. MBSTS hedefine %{user.progress.targetCompletion} yaklaştın.</p>
+          <h1 className="text-2xl font-bold text-slate-900">Selamün Aleyküm, {safeUser.name.split(' ')[0]} 👋</h1>
+          <p className="text-slate-500 mt-1">Bugün öğrenmeye devam etmek için harika bir gün. MBSTS hedefine %{progress.targetCompletion} yaklaştın.</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="bg-orange-50 px-4 py-2 rounded-lg border border-orange-100 flex items-center gap-2">
             <Flame className="w-5 h-5 text-orange-500" />
             <div>
               <p className="text-xs text-orange-600 font-medium uppercase tracking-wider">İlim Serisi</p>
-              <p className="text-lg font-bold text-orange-700 leading-none">{user.progress.streakDays} Gün</p>
+              <p className="text-lg font-bold text-orange-700 leading-none">{progress.streakDays} Gün</p>
             </div>
           </div>
         </div>
@@ -52,11 +68,12 @@ export default async function Home() {
                 <Target className="w-5 h-5 text-indigo-600" />
                 Günlük Çalışma Rotası
               </h2>
-              <span className="text-sm text-slate-500">{user.dailyTasks.filter(t => !t.completed).length} Görev Kaldı</span>
+              <span className="text-sm text-slate-500">{safeUser.dailyTasks.filter(t => !t.completed).length} Görev Kaldı</span>
             </div>
             
             <div className="space-y-3">
-              {user.dailyTasks.map((task) => (
+              {safeUser.dailyTasks.length === 0 && <p className="text-sm text-slate-500 italic p-4">Henüz bir görev bulunmuyor.</p>}
+              {safeUser.dailyTasks.map((task) => (
                 <div key={task.id} className={`flex items-center justify-between p-4 rounded-xl border ${task.active ? 'border-indigo-200 bg-indigo-50/50' : 'border-slate-100 bg-slate-50'} transition-colors`}>
                   <div className="flex items-center gap-4">
                     {task.completed ? (
@@ -114,7 +131,7 @@ export default async function Home() {
             
             <div className="text-center py-6">
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-50 border-8 border-emerald-100 mb-4">
-                <span className="text-2xl font-bold text-emerald-700">{user.progress.flashcardsToReview}</span>
+                <span className="text-2xl font-bold text-emerald-700">{progress.flashcardsToReview}</span>
               </div>
               <p className="text-slate-600 font-medium">Bugün tekrar edilmesi gereken kartınız var.</p>
               <p className="text-xs text-slate-400 mt-1">Unutma eğrisini kırmak için hemen tekrar edin.</p>
@@ -132,25 +149,25 @@ export default async function Home() {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-slate-600">Fıkıh Başarısı</span>
-                  <span className="font-medium text-slate-900">%{user.progress.fikihScore}</span>
+                  <span className="font-medium text-slate-900">%{progress.fikihScore}</span>
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div className={`bg-blue-500 h-2 rounded-full`} style={{ width: `${user.progress.fikihScore}%` }}></div>
+                  <div className={`bg-blue-500 h-2 rounded-full`} style={{ width: `${progress.fikihScore}%` }}></div>
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-slate-600">Kelam Başarısı</span>
-                  <span className="font-medium text-slate-900">%{user.progress.kelamScore}</span>
+                  <span className="font-medium text-slate-900">%{progress.kelamScore}</span>
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div className={`bg-amber-500 h-2 rounded-full`} style={{ width: `${user.progress.kelamScore}%` }}></div>
+                  <div className={`bg-amber-500 h-2 rounded-full`} style={{ width: `${progress.kelamScore}%` }}></div>
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-slate-600">Ezberlenen Ayet</span>
-                  <span className="font-medium text-slate-900">{user.progress.memorizedAyahs}</span>
+                  <span className="font-medium text-slate-900">{progress.memorizedAyahs}</span>
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2">
                   {/* Oranlama yapılabilir, mock olarak %30 gibi gösteriliyor */}

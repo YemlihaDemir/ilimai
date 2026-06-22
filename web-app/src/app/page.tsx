@@ -1,21 +1,38 @@
 import { BookOpen, CheckCircle2, Flame, PlayCircle, Target, TrendingUp } from "lucide-react";
+import { PrismaClient } from "@prisma/client";
 
-export default function Home() {
+const prisma = new PrismaClient();
+
+export default async function Home() {
+  // Veritabanından Demo Kullanıcıyı çek (seed.ts dosyasında oluşturduğumuz)
+  const user = await prisma.user.findFirst({
+    include: {
+      progress: true,
+      dailyTasks: {
+        orderBy: { order: 'asc' }
+      }
+    }
+  });
+
+  if (!user || !user.progress) {
+    return <div className="p-8">Veritabanında kullanıcı bulunamadı. Lütfen 'npx prisma db seed' çalıştırın.</div>;
+  }
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       
       {/* Welcome & Stats Row */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Selamün Aleyküm, Ahmet 👋</h1>
-          <p className="text-slate-500 mt-1">Bugün öğrenmeye devam etmek için harika bir gün. MBSTS hedefine %65 yaklaştın.</p>
+          <h1 className="text-2xl font-bold text-slate-900">Selamün Aleyküm, {user.name.split(' ')[0]} 👋</h1>
+          <p className="text-slate-500 mt-1">Bugün öğrenmeye devam etmek için harika bir gün. MBSTS hedefine %{user.progress.targetCompletion} yaklaştın.</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="bg-orange-50 px-4 py-2 rounded-lg border border-orange-100 flex items-center gap-2">
             <Flame className="w-5 h-5 text-orange-500" />
             <div>
               <p className="text-xs text-orange-600 font-medium uppercase tracking-wider">İlim Serisi</p>
-              <p className="text-lg font-bold text-orange-700 leading-none">12 Gün</p>
+              <p className="text-lg font-bold text-orange-700 leading-none">{user.progress.streakDays} Gün</p>
             </div>
           </div>
         </div>
@@ -34,16 +51,12 @@ export default function Home() {
                 <Target className="w-5 h-5 text-indigo-600" />
                 Günlük Çalışma Rotası
               </h2>
-              <span className="text-sm text-slate-500">3 Görev Kaldı</span>
+              <span className="text-sm text-slate-500">{user.dailyTasks.filter(t => !t.completed).length} Görev Kaldı</span>
             </div>
             
             <div className="space-y-3">
-              {[
-                { title: "Fıkıh: Hac İbadeti ve Şartları", type: "Konu Anlatımı", time: "15 dk", completed: true },
-                { title: "MBSTS Fıkıh Mini Denemesi", type: "Soru Çözümü", time: "10 Soru", completed: false, active: true },
-                { title: "Arapça YDS Kelimeleri (Set 4)", type: "Aralıklı Tekrar", time: "20 Kelime", completed: false },
-              ].map((task, i) => (
-                <div key={i} className={`flex items-center justify-between p-4 rounded-xl border ${task.active ? 'border-indigo-200 bg-indigo-50/50' : 'border-slate-100 bg-slate-50'} transition-colors`}>
+              {user.dailyTasks.map((task) => (
+                <div key={task.id} className={`flex items-center justify-between p-4 rounded-xl border ${task.active ? 'border-indigo-200 bg-indigo-50/50' : 'border-slate-100 bg-slate-50'} transition-colors`}>
                   <div className="flex items-center gap-4">
                     {task.completed ? (
                       <CheckCircle2 className="w-6 h-6 text-emerald-500" />
@@ -56,7 +69,7 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-slate-600">{task.time}</span>
+                    <span className="text-sm font-medium text-slate-600">{task.timeOrCount}</span>
                     {task.active && (
                       <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium transition-colors">
                         Başla
@@ -100,7 +113,7 @@ export default function Home() {
             
             <div className="text-center py-6">
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-50 border-8 border-emerald-100 mb-4">
-                <span className="text-2xl font-bold text-emerald-700">42</span>
+                <span className="text-2xl font-bold text-emerald-700">{user.progress.flashcardsToReview}</span>
               </div>
               <p className="text-slate-600 font-medium">Bugün tekrar edilmesi gereken kartınız var.</p>
               <p className="text-xs text-slate-400 mt-1">Unutma eğrisini kırmak için hemen tekrar edin.</p>
@@ -118,27 +131,28 @@ export default function Home() {
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-slate-600">Fıkıh Başarısı</span>
-                  <span className="font-medium text-slate-900">%78</span>
+                  <span className="font-medium text-slate-900">%{user.progress.fikihScore}</span>
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div className="bg-blue-500 h-2 rounded-full w-[78%]"></div>
+                  <div className={`bg-blue-500 h-2 rounded-full`} style={{ width: `${user.progress.fikihScore}%` }}></div>
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-slate-600">Kelam Başarısı</span>
-                  <span className="font-medium text-slate-900">%45</span>
+                  <span className="font-medium text-slate-900">%{user.progress.kelamScore}</span>
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2">
-                  <div className="bg-amber-500 h-2 rounded-full w-[45%]"></div>
+                  <div className={`bg-amber-500 h-2 rounded-full`} style={{ width: `${user.progress.kelamScore}%` }}></div>
                 </div>
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-slate-600">Ezberlenen Ayet</span>
-                  <span className="font-medium text-slate-900">124</span>
+                  <span className="font-medium text-slate-900">{user.progress.memorizedAyahs}</span>
                 </div>
                 <div className="w-full bg-slate-100 rounded-full h-2">
+                  {/* Oranlama yapılabilir, mock olarak %30 gibi gösteriliyor */}
                   <div className="bg-emerald-500 h-2 rounded-full w-[30%]"></div>
                 </div>
               </div>

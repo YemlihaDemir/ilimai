@@ -1,0 +1,54 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String     @id @default(uuid())
+  name           String
+  email          String     @unique
+  role           String     @default("STUDENT") // STUDENT, TEACHER, ADMIN
+  createdAt      DateTime   @default(now())
+  
+  // Relations
+  progress       Progress?
+  dailyTasks     DailyTask[]
+}
+
+model Progress {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  streakDays      Int      @default(0)
+  targetCompletion Int     @default(0) // Percentage 0-100
+  
+  fikihScore      Int      @default(0) // Percentage 0-100
+  kelamScore      Int      @default(0) // Percentage 0-100
+  memorizedAyahs  Int      @default(0)
+  flashcardsToReview Int   @default(0)
+  
+  updatedAt       DateTime @updatedAt
+}
+
+model DailyTask {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  title       String
+  type        String   // e.g., "Konu Anlatımı", "Soru Çözümü", "Aralıklı Tekrar"
+  timeOrCount String   // e.g., "15 dk", "10 Soru", "20 Kelime"
+  completed   Boolean  @default(false)
+  active      Boolean  @default(false)
+  order       Int      @default(0)
+  
+  createdAt   DateTime @default(now())
+}
